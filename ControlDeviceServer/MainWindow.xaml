@@ -1,0 +1,132 @@
+﻿<Window x:Class="ControlDeviceServer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="QuestPad — Gamepad → Quest (UDP)" Width="900" Height="560"
+        Background="#101318" Foreground="#E9EDF2" FontFamily="Segoe UI">
+    <Window.Resources>
+        <SolidColorBrush x:Key="Panel"  Color="#161A20"/>
+        <SolidColorBrush x:Key="Border" Color="#2A3038"/>
+        <Style TargetType="Button">
+            <Setter Property="Foreground" Value="#E9EDF2"></Setter>
+            <Setter Property="Background" Value="{StaticResource Panel}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="4"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Foreground" Value="#E9EDF2"/>
+            <Setter Property="Background" Value="#0E1116"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="Padding" Value="6,4"/>
+        </Style>
+        <Style TargetType="GroupBox">
+            <Setter Property="Foreground" Value="#E9EDF2"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="Margin" Value="8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Grid>
+                            <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                                    Background="{StaticResource Panel}" CornerRadius="8" Padding="10" Margin="0,8,0,0"/>
+                            <Border Background="{StaticResource Panel}" Padding="4,0" HorizontalAlignment="Left" Margin="10,0,0,0">
+                                <TextBlock Text="{TemplateBinding Header}" Foreground="#9FB4C8"/>
+                            </Border>
+                            <ContentPresenter Margin="10,18,10,10"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#E9EDF2"/>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+        <!-- Верхняя панель -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Panel}" BorderBrush="{StaticResource Border}"
+                BorderThickness="0,0,0,1" Padding="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="IP:" Opacity="0.7" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox x:Name="IpBox" Width="140" Text="192.168.1.50"/>
+                    <TextBlock Text="Порт:" Opacity="0.7" VerticalAlignment="Center" Margin="8,0,6,0"/>
+                    <TextBox x:Name="PortBox" Width="70" Text="29299"/>
+                    <TextBlock Text="Гц:" Opacity="0.7" VerticalAlignment="Center" Margin="8,0,6,0"/>
+                    <Slider x:Name="HzSlider" Minimum="60" Maximum="500" Value="200" Width="160" Margin="0,6,0,0"/>
+                    <TextBlock x:Name="HzLabel" Width="40" TextAlignment="Right" Margin="6,0,0,0"/>
+                    <CheckBox x:Name="LowLatencyTos" Content="Low-latency TOS" Height="17"/>
+                    <CheckBox x:Name="LogGamepadState" Content="LogGamepad State" Margin="12,0,0,0" Height="18"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="StartBtn" Content="Start" Click="StartBtn_Click"/>
+                    <Button x:Name="StopBtn"  Content="Stop"  Click="StopBtn_Click" IsEnabled="False"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Две колонки: слева логи, справа параметры+статистика -->
+        <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ЛЕВАЯ КОЛОНКА — ЛОГИ -->
+            <GroupBox Header="Логи">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <TextBox x:Name="LogBox"
+                                 IsReadOnly="True"
+                                 FontFamily="Consolas"
+                                 FontSize="12"
+                                 Background="#0E1116"
+                                 BorderThickness="0"
+                                 TextWrapping="NoWrap"
+                                 AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Disabled"/>
+                    </ScrollViewer>
+
+                    <TextBlock x:Name="StatusText" Grid.Row="1" Opacity="0.8" Margin="0,6,0,0"
+                               HorizontalAlignment="Right"/>
+                </Grid>
+            </GroupBox>
+
+            <!-- ПРАВАЯ КОЛОНКА — параметры и статистика -->
+            <StackPanel Grid.Column="1">
+                <GroupBox Header="Параметры">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Deadzone" Width="90" Opacity="0.7"/>
+                            <Slider x:Name="DeadzoneSlider" Minimum="0" Maximum="0.3" Value="0.1" Width="160"/>
+                            <TextBlock x:Name="DeadzoneLabel" Width="60" TextAlignment="Right"/>
+                        </StackPanel>
+                        <CheckBox x:Name="InvertLY" Content="Инвертировать левый Y"/>
+                        <CheckBox x:Name="InvertRY" Content="Инвертировать правый Y"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Статистика">
+                    <StackPanel>
+                        <TextBlock x:Name="FpsVal"  Text="Текущая частота: 0 Гц"/>
+                        <TextBlock x:Name="PadHint" Text="Геймпад: не найден" Opacity="0.8"/>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </Grid>
+    </DockPanel>
+</Window>
