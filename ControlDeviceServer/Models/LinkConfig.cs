@@ -17,5 +17,6 @@ namespace ControlDeviceServer.Models
         public double Deadzone;
         public bool InvertLeftY;
         public bool InvertRightY;
+        public InputMode InputMode;
     }
 }

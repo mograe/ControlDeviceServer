@@ -9,7 +9,7 @@ namespace ControlDeviceServer.Core
     public sealed class GamepadPacket
     {
         public const int Size = 22;
-        public static void Write(Span<byte> buf, GamepadState gamepadState)
+        public static void Write(byte[] buf, GamepadState gamepadState)
         {
             PutU32(buf, 0, gamepadState.seq);
             PutU32(buf, 4, gamepadState.ms);
@@ -19,8 +19,8 @@ namespace ControlDeviceServer.Core
             PutU16(buf, 20, gamepadState.buttons);
         }
 
-        static void PutU16(Span<byte> b, int o, ushort v) { b[o] = (byte)v; b[o + 1] = (byte)(v >> 8); }
-        static void PutI16(Span<byte> b, int o, short v) { b[o] = (byte)v; b[o + 1] = (byte)(v >> 8); }
-        static void PutU32(Span<byte> b, int o, uint v) { b[0] = (byte)v; b[o + 1] = (byte)(v >> 8); b[o + 2] = (byte)(v >> 16); b[o + 3] = (byte)(v >> 24); }
+        static void PutU16(byte[] b, int o, ushort v) { b[o] = (byte)v; b[o + 1] = (byte)(v >> 8); }
+        static void PutI16(byte[] b, int o, short v) { b[o] = (byte)v; b[o + 1] = (byte)(v >> 8); }
+        static void PutU32(byte[] b, int o, uint v) { b[0] = (byte)v; b[o + 1] = (byte)(v >> 8); b[o + 2] = (byte)(v >> 16); b[o + 3] = (byte)(v >> 24); }
     }
 }

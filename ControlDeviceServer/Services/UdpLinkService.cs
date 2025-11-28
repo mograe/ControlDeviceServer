@@ -56,7 +56,13 @@ namespace ControlDeviceServer.Services
             _lastPadPresent = false;
 
             _log.Info($"Старт → {_target.Address}:{_target.Port}, {_cfg.SendHz} Гц, TOS={(_cfg.LowLatencyTos ? "low-latency" : "default")}");
-            _ = Task.Run(() => SendLoop(_cts.Token));
+           
+            _ = Task.Run(async () =>
+            {
+                if (_cfg.InputMode == InputMode.Gamepad)
+                    await 
+            }
+            );
         }
 
         public void Stop()
@@ -76,7 +82,7 @@ namespace ControlDeviceServer.Services
 
         }
 
-        async Task SendLoop(CancellationToken ct)
+        async Task SendGamepadLoop(CancellationToken ct)
         {
             int intervalMs = ClampInt((int)Math.Round(1000.0 / _cfg.SendHz), 2, 1000);
             var buf = new byte[GamepadPacket.Size];
@@ -131,6 +137,55 @@ namespace ControlDeviceServer.Services
             }
 
             _log.Info("Цикл отправки завершён");
+        }
+
+        async Task SendKeyboardLoop(CancellationToken ct)
+        {
+            int intervalMs = ClampInt((int)Math.Round(1000.0 / _cfg.SendHz), 2, 1000);
+            var buf = new byte[KeyboardPacket.Size];
+            var keys = new byte[256];
+
+            _log.Info($"Цикл отправки (клавиатура): интервал {intervalMs} мс");
+            
+            while (!ct.IsCancellationRequested)
+            {
+                if (!KeyboardStateProvider.TryGetState(keys))
+                {
+                    RateOncePerSecondKeyboard("Не удалось получить состояние клавиатуры");
+                    await Task.Delay(100, ct);
+                    continue;
+                }
+            }
+
+            uint seq = _seq++;
+            uint ms = (uint)_sw.ElapsedMilliseconds;
+
+            KeyboardPacket.Write(buf, seq, ms, keys);
+
+            try
+            {
+                await _udp.SendAsync(buf, buf.Length, _target);
+            }
+            catch (Exception ex)
+            {
+                _log.Warn("Ошибка отправки: " + ex.Message);
+            }
+
+            _sentThisSecond++;
+            RateOncePerSecondKeyboard
+        }
+
+        void RateOncePerSecondKeyboard(string msg)
+        {
+            var now = DateTime.UtcNow;
+            if ((now - _secTick).TotalSeconds >= 1)
+            {
+                var t = Telemetry;
+                if (t != null) t(_sentThisSecond, "клавиатура");
+                _sentThisSecond = 0;
+                _secTick = now;
+                if (!string.IsNullOrEmpty(msg)) _log.Info(msg);
+            }
         }
 
         static int FilterAxis(int v, bool invert, double deadzone)

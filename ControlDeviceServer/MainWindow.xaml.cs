@@ -51,8 +51,15 @@ namespace ControlDeviceServer
             Dispatcher.Invoke(() =>
             {
                 FpsVal.Text = $"Текущая частота: {hz} Гц";
-                PadHint.Text = $"Геймпад: {padStatus}";
+                PadHint.Text = padStatus;
             });
+        }
+
+        private InputMode GetMode()
+        {
+            if (ModeGamepad.IsChecked == true) return InputMode.Gamepad;
+            if (ModeKeyboard.IsChecked == true) return InputMode.Keyboard;
+            return InputMode.Gamepad;
         }
 
         void StartBtn_Click(object sender, RoutedEventArgs e)
@@ -71,7 +78,9 @@ namespace ControlDeviceServer
                 LogGamepad = LogGamepadState.IsChecked == true,
                 Deadzone = DeadzoneSlider.Value,
                 InvertLeftY = InvertLY.IsChecked == true,
-                InvertRightY = InvertLY.IsChecked == true,
+                InvertRightY = InvertRY.IsChecked == true,
+
+                InputMode = GetMode()
             };
 
             _link.Start(cfg);

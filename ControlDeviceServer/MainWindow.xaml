@@ -43,6 +43,9 @@
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="#E9EDF2"/>
         </Style>
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#E9EDF2"/>
+        </Style>
     </Window.Resources>
 
     <DockPanel>
@@ -108,6 +111,16 @@
 
             <!-- ПРАВАЯ КОЛОНКА — параметры и статистика -->
             <StackPanel Grid.Column="1">
+                <GroupBox Header="Режим ввода" Margin="0,8,0,0">
+                    <StackPanel>
+                        <RadioButton x:Name="ModeGamepad"
+                     Content="Геймпад (XInput)"
+                     IsChecked="True"/>
+                        <RadioButton x:Name="ModeKeyboard"
+                     Content="Клавиатура (все клавиши)"
+                     Margin="0,4,0,0"/>
+                    </StackPanel>
+                </GroupBox>
                 <GroupBox Header="Параметры">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
