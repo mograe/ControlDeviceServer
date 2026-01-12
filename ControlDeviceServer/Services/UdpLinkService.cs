@@ -1,15 +1,12 @@
 ﻿using ControlDeviceServer.Core;
 using ControlDeviceServer.Models;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml.Serialization;
+using System.Windows.Forms;
 
 namespace ControlDeviceServer.Services
 {
@@ -23,7 +20,6 @@ namespace ControlDeviceServer.Services
         readonly Stopwatch _sw = Stopwatch.StartNew();
 
         uint _seq;
-        //long _sentTotal;
         int _sentThisSecond;
         DateTime _secTick = DateTime.UtcNow;
 
@@ -37,57 +33,81 @@ namespace ControlDeviceServer.Services
         {
             Stop();
 
-            _cfg = cfg;
+            _cfg = cfg ?? throw new ArgumentNullException(nameof(cfg));
             _udp = new UdpClient();
+
             if (_cfg.LowLatencyTos)
             {
                 try
                 {
+                    // DSCP AF11 (примерно low-latency), как у тебя было 0x28
                     _udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 0x28);
                 }
-                catch { }
+                catch { /* не критично */ }
             }
 
             _target = new IPEndPoint(cfg.TargetIP, cfg.Port);
             _cts = new CancellationTokenSource();
 
-            _seq = 0; //_sentTotal = 0;
-            _sentThisSecond = 0; _secTick = DateTime.UtcNow;
+            _seq = 0;
+            _sentThisSecond = 0;
+            _secTick = DateTime.UtcNow;
             _lastPadPresent = false;
 
             _log.Info($"Старт → {_target.Address}:{_target.Port}, {_cfg.SendHz} Гц, TOS={(_cfg.LowLatencyTos ? "low-latency" : "default")}");
-           
+
+            var ct = _cts.Token;
+
             _ = Task.Run(async () =>
             {
-                if (_cfg.InputMode == InputMode.Gamepad)
-                    await 
-            }
-            );
+                try
+                {
+                    switch (_cfg.InputMode)
+                    {
+                        case InputMode.Gamepad:
+                            await SendGamepadLoop(ct);
+                            break;
+
+                        case InputMode.Keyboard:
+                            await SendKeyboardLoop(ct);
+                            break;
+
+                        default:
+                            _log.Warn($"Неизвестный InputMode={_cfg.InputMode}. Ничего не запущено.");
+                            break;
+                    }
+                }
+                catch (OperationCanceledException) { /* норм */ }
+                catch (Exception ex)
+                {
+                    _log.Error("Фоновая задача отправки упала: " + ex);
+                }
+            }, ct);
         }
 
         public void Stop()
         {
             if (_cts != null)
             {
-                try {  _cts.Cancel(); } catch { }
+                try { _cts.Cancel(); } catch { }
                 _cts.Dispose();
                 _cts = null;
             }
+
             if (_udp != null)
             {
                 try { _udp.Close(); } catch { }
                 _udp.Dispose();
                 _udp = null;
             }
-
         }
 
         async Task SendGamepadLoop(CancellationToken ct)
         {
-            int intervalMs = ClampInt((int)Math.Round(1000.0 / _cfg.SendHz), 2, 1000);
+            int intervalMs = ClampInt((int)Math.Round(1000.0 / Math.Max(1, _cfg.SendHz)), 2, 1000);
             var buf = new byte[GamepadPacket.Size];
 
-            _log.Info($"Цикл отправки: интервал {intervalMs} мс");
+            _log.Info($"Цикл отправки (геймпад): интервал {intervalMs} мс");
 
             while (!ct.IsCancellationRequested)
             {
@@ -108,14 +128,13 @@ namespace ControlDeviceServer.Services
                 }
 
                 GamepadState gamepadState;
-
                 gamepadState.seq = _seq++;
                 gamepadState.ms = (uint)_sw.ElapsedMilliseconds;
 
-                gamepadState.lx = (short) FilterAxis(state.gamepad.sThumbLX, false, _cfg.Deadzone);
-                gamepadState.ly = (short) FilterAxis(state.gamepad.sThumbLY, _cfg.InvertLeftY, _cfg.Deadzone);
-                gamepadState.rx = (short) FilterAxis(state.gamepad.sThumbRX, false, _cfg.Deadzone);
-                gamepadState.ry = (short) FilterAxis(state.gamepad.sThumbRY, _cfg.InvertRightY, _cfg.Deadzone);
+                gamepadState.lx = (short)FilterAxis(state.gamepad.sThumbLX, false, _cfg.Deadzone);
+                gamepadState.ly = (short)FilterAxis(state.gamepad.sThumbLY, _cfg.InvertLeftY, _cfg.Deadzone);
+                gamepadState.rx = (short)FilterAxis(state.gamepad.sThumbRX, false, _cfg.Deadzone);
+                gamepadState.ry = (short)FilterAxis(state.gamepad.sThumbRY, _cfg.InvertRightY, _cfg.Deadzone);
 
                 gamepadState.lt = (ushort)ClampInt(state.gamepad.bLeftTrigger * 4, 0, 1023);
                 gamepadState.rt = (ushort)ClampInt(state.gamepad.bRightTrigger * 4, 0, 1023);
@@ -126,27 +145,38 @@ namespace ControlDeviceServer.Services
 
                 GamepadPacket.Write(buf, gamepadState);
 
-                try { await _udp.SendAsync(buf, buf.Length, _target); }
-                catch (Exception e) { _log.Error("Ошибка отправки: " + e.Message); }
+                try
+                {
+                    await _udp.SendAsync(buf, buf.Length, _target);
+                }
+                catch (SocketException e)
+                {
+                    _log.Error("Ошибка отправки UDP: " + e.Message);
+                }
+                catch (ObjectDisposedException)
+                {
+                    break; // Stop() закрыл сокет
+                }
 
-                //_sentTotal++;
                 _sentThisSecond++;
+                RateOncePerSecond(null);
 
-                RateOncePerSecond(padPresent ? null : "Геймпад не найден");
                 await Task.Delay(intervalMs, ct);
             }
 
-            _log.Info("Цикл отправки завершён");
+            _log.Info("Цикл отправки (геймпад) завершён");
         }
 
-        async Task SendKeyboardLoop(CancellationToken ct)
+    async Task SendKeyboardLoop(CancellationToken ct)
         {
-            int intervalMs = ClampInt((int)Math.Round(1000.0 / _cfg.SendHz), 2, 1000);
+            int intervalMs = ClampInt((int)Math.Round(1000.0 / Math.Max(1, _cfg.SendHz)), 2, 1000);
             var buf = new byte[KeyboardPacket.Size];
             var keys = new byte[256];
+            var prev = new byte[256];
+            bool hasPrev = false;
 
             _log.Info($"Цикл отправки (клавиатура): интервал {intervalMs} мс");
-            
+
             while (!ct.IsCancellationRequested)
             {
                 if (!KeyboardStateProvider.TryGetState(keys))
@@ -155,24 +185,40 @@ namespace ControlDeviceServer.Services
                     await Task.Delay(100, ct);
                     continue;
                 }
+
+                // --- ЛОГ ТОЛЬКО ИЗМЕНЕНИЙ ---
+                if (hasPrev)
+                {
+                    for (int vk = 0; vk < 256; vk++)
+                    {
+                        bool wasDown = (prev[vk] & 0x80) != 0;
+                        bool isDown = (keys[vk] & 0x80) != 0;
+
+                        if (wasDown != isDown)
+                        {
+                            string name = ((Keys)vk).ToString();
+                            _log.Info(isDown ? $"KEY DOWN: {vk} {name}" : $"KEY UP: {vk} {name}");
+                        }
+                    }
+                }
+                Buffer.BlockCopy(keys, 0, prev, 0, 256);
+                hasPrev = true;
+                // ---------------------------
+
+                uint seq = _seq++;
+                uint ms = (uint)_sw.ElapsedMilliseconds;
+
+                KeyboardPacket.Write(buf, seq, ms, keys);
+
+                try { await _udp.SendAsync(buf, buf.Length, _target); }
+                catch (ObjectDisposedException) { break; }
+                catch (SocketException ex) { _log.Warn("Ошибка отправки UDP: " + ex.Message); }
+
+                _sentThisSecond++;
+                RateOncePerSecondKeyboard(null);
+
+                await Task.Delay(intervalMs, ct);
             }
-
-            uint seq = _seq++;
-            uint ms = (uint)_sw.ElapsedMilliseconds;
-
-            KeyboardPacket.Write(buf, seq, ms, keys);
-
-            try
-            {
-                await _udp.SendAsync(buf, buf.Length, _target);
-            }
-            catch (Exception ex)
-            {
-                _log.Warn("Ошибка отправки: " + ex.Message);
-            }
-
-            _sentThisSecond++;
-            RateOncePerSecondKeyboard
         }
 
         void RateOncePerSecondKeyboard(string msg)
@@ -180,8 +226,19 @@ namespace ControlDeviceServer.Services
             var now = DateTime.UtcNow;
             if ((now - _secTick).TotalSeconds >= 1)
             {
-                var t = Telemetry;
-                if (t != null) t(_sentThisSecond, "клавиатура");
+                Telemetry?.Invoke(_sentThisSecond, "клавиатура");
+                _sentThisSecond = 0;
+                _secTick = now;
+                if (!string.IsNullOrEmpty(msg)) _log.Info(msg);
+            }
+        }
+
+        void RateOncePerSecond(string msg)
+        {
+            var now = DateTime.UtcNow;
+            if ((now - _secTick).TotalSeconds >= 1)
+            {
+                Telemetry?.Invoke(_sentThisSecond, _lastPadPresent ? "найден" : "нет");
                 _sentThisSecond = 0;
                 _secTick = now;
                 if (!string.IsNullOrEmpty(msg)) _log.Info(msg);
@@ -204,23 +261,11 @@ namespace ControlDeviceServer.Services
             return v;
         }
 
-        void RateOncePerSecond(string msg)
-        {
-            var now = DateTime.UtcNow;
-            if ((now - _secTick).TotalSeconds >= 1)
-            {
-                var t = Telemetry;
-                if (t != null) t(_sentThisSecond, _lastPadPresent ? "найден" : "нет");
-                _sentThisSecond = 0;
-                _secTick = now;
-                if (!string.IsNullOrEmpty(msg)) _log.Info(msg);
-            }
-        }
-
         static ushort MapButtons(int flags)
         {
             ushort m = 0;
             Action<int, int> B = (flag, bit) => { if ((flags & flag) != 0) m |= (ushort)(1 << bit); };
+
             B(XInput.XINPUT_GAMEPAD_A, 0);
             B(XInput.XINPUT_GAMEPAD_B, 1);
             B(XInput.XINPUT_GAMEPAD_X, 2);
@@ -235,6 +280,7 @@ namespace ControlDeviceServer.Services
             B(XInput.XINPUT_GAMEPAD_DPAD_DOWN, 11);
             B(XInput.XINPUT_GAMEPAD_DPAD_LEFT, 12);
             B(XInput.XINPUT_GAMEPAD_DPAD_RIGHT, 13);
+
             return m;
         }
     }
