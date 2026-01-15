@@ -210,7 +210,7 @@ namespace ControlDeviceServer.Services
 
                 KeyboardPacket.Write(buf, seq, ms, keys);
 
-                try { await _udp.SendAsync(buf, buf.Length, _target); }
+                try { await _udp?.SendAsync(buf, buf.Length, _target); }
                 catch (ObjectDisposedException) { break; }
                 catch (SocketException ex) { _log.Warn("Ошибка отправки UDP: " + ex.Message); }
 
