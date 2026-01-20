@@ -140,7 +140,7 @@ namespace ControlDeviceServer.Services
                 gamepadState.rt = (ushort)ClampInt(state.gamepad.bRightTrigger * 4, 0, 1023);
                 gamepadState.buttons = MapButtons(state.gamepad.wButtons);
 
-                if (_cfg.LogGamepad)
+                if (_cfg.LogState)
                     _log.Info(gamepadState.ToString());
 
                 GamepadPacket.Write(buf, gamepadState);
@@ -186,25 +186,25 @@ namespace ControlDeviceServer.Services
                     continue;
                 }
 
-                // --- ЛОГ ТОЛЬКО ИЗМЕНЕНИЙ ---
-                if (hasPrev)
+                if (_cfg.LogState)
                 {
-                    for (int vk = 0; vk < 256; vk++)
+                    if (hasPrev)
                     {
-                        bool wasDown = (prev[vk] & 0x80) != 0;
-                        bool isDown = (keys[vk] & 0x80) != 0;
-
-                        if (wasDown != isDown)
+                        for (int vk = 0; vk < 256; vk++)
                         {
-                            string name = ((Keys)vk).ToString();
-                            _log.Info(isDown ? $"KEY DOWN: {vk} {name}" : $"KEY UP: {vk} {name}");
+                            bool wasDown = (prev[vk] & 0x80) != 0;
+                            bool isDown = (keys[vk] & 0x80) != 0;
+
+                            if (wasDown != isDown)
+                            {
+                                string name = ((Keys)vk).ToString();
+                                _log.Info(isDown ? $"KEY DOWN: {vk} {name}" : $"KEY UP: {vk} {name}");
+                            }
                         }
                     }
+                    Buffer.BlockCopy(keys, 0, prev, 0, 256);
+                    hasPrev = true;
                 }
-                Buffer.BlockCopy(keys, 0, prev, 0, 256);
-                hasPrev = true;
-                // ---------------------------
-
                 uint seq = _seq++;
                 uint ms = (uint)_sw.ElapsedMilliseconds;
 

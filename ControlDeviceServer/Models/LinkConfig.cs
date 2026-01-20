@@ -13,7 +13,7 @@ namespace ControlDeviceServer.Models
         public int Port;
         public int SendHz;
         public bool LowLatencyTos;
-        public bool LogGamepad;
+        public bool LogState;
         public double Deadzone;
         public bool InvertLeftY;
         public bool InvertRightY;

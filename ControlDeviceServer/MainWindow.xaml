@@ -66,8 +66,8 @@
                     <TextBlock Text="Гц:" Opacity="0.7" VerticalAlignment="Center" Margin="8,0,6,0"/>
                     <Slider x:Name="HzSlider" Minimum="60" Maximum="500" Value="200" Width="160" Margin="0,6,0,0"/>
                     <TextBlock x:Name="HzLabel" Width="40" TextAlignment="Right" Margin="6,0,0,0"/>
-                    <CheckBox x:Name="LowLatencyTos" Content="Low-latency TOS" Height="17"/>
-                    <CheckBox x:Name="LogGamepadState" Content="LogGamepad State" Margin="12,0,0,0" Height="18"/>
+                    <CheckBox x:Name="LowLatencyTos" Content="Low-latency TOS" Height="17" Click="CheckBox_Click"/>
+                    <CheckBox x:Name="LogState" Content="Log State" Margin="12,0,0,0" Height="18" Click="CheckBox_Click"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
@@ -115,10 +115,10 @@
                     <StackPanel>
                         <RadioButton x:Name="ModeGamepad"
                      Content="Геймпад (XInput)"
-                     IsChecked="True"/>
+                     IsChecked="True" Click="CheckBox_Click"/>
                         <RadioButton x:Name="ModeKeyboard"
                      Content="Клавиатура (все клавиши)"
-                     Margin="0,4,0,0"/>
+                     Margin="0,4,0,0" Click="CheckBox_Click"/>
                     </StackPanel>
                 </GroupBox>
                 <GroupBox Header="Параметры">
@@ -128,8 +128,8 @@
                             <Slider x:Name="DeadzoneSlider" Minimum="0" Maximum="0.3" Value="0.1" Width="160"/>
                             <TextBlock x:Name="DeadzoneLabel" Width="60" TextAlignment="Right"/>
                         </StackPanel>
-                        <CheckBox x:Name="InvertLY" Content="Инвертировать левый Y"/>
-                        <CheckBox x:Name="InvertRY" Content="Инвертировать правый Y"/>
+                        <CheckBox x:Name="InvertLY" Content="Инвертировать левый Y" Click="CheckBox_Click"/>
+                        <CheckBox x:Name="InvertRY" Content="Инвертировать правый Y" Click="CheckBox_Click"/>
                     </StackPanel>
                 </GroupBox>
 

@@ -64,6 +64,12 @@ namespace ControlDeviceServer
 
         void StartBtn_Click(object sender, RoutedEventArgs e)
         {
+            Start();
+        }
+
+
+        private void Start()
+        {
             IPAddress ip;
             int port;
             if (!IPAddress.TryParse(IpBox.Text.Trim(), out ip)) { MessageBox.Show("Некорректный IP"); return; }
@@ -75,7 +81,7 @@ namespace ControlDeviceServer
                 Port = port,
                 SendHz = (int)HzSlider.Value,
                 LowLatencyTos = LowLatencyTos.IsChecked == true,
-                LogGamepad = LogGamepadState.IsChecked == true,
+                LogState = LogState.IsChecked == true,
                 Deadzone = DeadzoneSlider.Value,
                 InvertLeftY = InvertLY.IsChecked == true,
                 InvertRightY = InvertRY.IsChecked == true,
@@ -100,6 +106,14 @@ namespace ControlDeviceServer
         {
             base.OnClosed(e);
             _link.Stop();
+        }
+
+        private void CheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            if (!StartBtn.IsEnabled)
+            {
+                Start();
+            }
         }
     }
 }
