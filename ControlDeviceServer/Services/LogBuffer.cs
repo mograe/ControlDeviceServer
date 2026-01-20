@@ -14,10 +14,19 @@ namespace ControlDeviceServer.Services
         readonly StringBuilder _sb = new StringBuilder();
 
         public event Action<string> LineAdded;
+        public event Action Cleared;
 
         public void Info(string text) => Append("INFO", text);
         public void Warn(string text) => Append("WARN", text);
         public void Error(string text) => Append("ERR", text);
+
+        public void Clear()
+        {
+            lock (_lock)
+                _sb.Clear();
+
+            Cleared?.Invoke();
+        }
 
         void Append(string lvl, string msg)
         {

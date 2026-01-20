@@ -24,11 +24,16 @@ namespace ControlDeviceServer
         {
             InitializeComponent();
 
-            _log.LineAdded += line => Dispatcher.Invoke(() =>
+            _log.LineAdded += line => Dispatcher.BeginInvoke(new Action(() =>
             {
                 LogBox.AppendText(line);
                 LogBox.ScrollToEnd();
-            });
+            }));
+
+            _log.Cleared += () => Dispatcher.BeginInvoke(new Action(() =>
+            {
+                LogBox.Clear();
+            }));
 
             _link = new UdpLinkService(_log);
             _link.Telemetry += OnTelemetry;
@@ -64,6 +69,7 @@ namespace ControlDeviceServer
 
         void StartBtn_Click(object sender, RoutedEventArgs e)
         {
+            _log.Clear();
             Start();
         }
 
