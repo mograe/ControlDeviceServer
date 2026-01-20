@@ -23,6 +23,7 @@ namespace ControlDeviceServer
         public MainWindow()
         {
             InitializeComponent();
+            LoadSettings();
 
             _log.LineAdded += line => Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -51,6 +52,38 @@ namespace ControlDeviceServer
             _log.Info("Приложение запущено");
         }
 
+        private void LoadSettings()
+        {
+            ConfigSerialized config = ConfigStore.LoadOrDefault();
+            if (config != null)
+            {
+                IpBox.Text = config.TargetIP;
+                PortBox.Text = config.TargetPort.ToString();
+                HzSlider.Value = config.SendHz;
+                LowLatencyTos.IsChecked = config.LowLatencyTos;
+                SetMode(config.InputMode);
+                DeadzoneSlider.Value = config.Deadzone;
+                InvertLY.IsChecked = config.InvertLeftY;
+                InvertRY.IsChecked = config.InvertRightY;
+                LogState.IsChecked = config.LogState;
+            }
+        }
+
+        private void SaveSettings()
+        {
+            var config = new ConfigSerialized();
+            config.TargetIP = IpBox.Text;
+            config.TargetPort = int.TryParse(PortBox.Text, out var port) ? port : 7777;
+            config.SendHz = HzSlider.Value;
+            config.LowLatencyTos = (bool)LowLatencyTos.IsChecked;
+            config.InputMode = GetMode();
+            config.Deadzone = DeadzoneSlider.Value;
+            config.InvertLeftY = (bool)InvertLY.IsChecked;
+            config.InvertRightY = (bool)InvertRY.IsChecked;
+            config.LogState = (bool)LogState.IsChecked;
+            ConfigStore.Save(config);
+        }
+
         private void OnTelemetry(int hz, string padStatus)
         {
             Dispatcher.Invoke(() =>
@@ -58,6 +91,22 @@ namespace ControlDeviceServer
                 FpsVal.Text = $"Текущая частота: {hz} Гц";
                 PadHint.Text = padStatus;
             });
+        }
+
+        private void SetMode(InputMode inputMode)
+        {
+            switch (inputMode)
+            {
+                case InputMode.Gamepad:
+                    ModeGamepad.IsChecked = true; 
+                    break;
+                case InputMode.Keyboard:
+                    ModeKeyboard.IsChecked = true;
+                    break;
+                default:
+                    ModeGamepad.IsChecked = true;
+                    break;
+            }
         }
 
         private InputMode GetMode()
@@ -110,6 +159,7 @@ namespace ControlDeviceServer
 
         protected override void OnClosed(EventArgs e)
         {
+            SaveSettings();
             base.OnClosed(e);
             _link.Stop();
         }
